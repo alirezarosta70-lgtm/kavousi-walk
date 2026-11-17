@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>پنل مدیر</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap">
+<style>
+:root{--night:#16342d;--moss:#245046;--mist:#e8efea;--tulip:#b3261e;--line:#cbd8d1}
+*{box-sizing:border-box}
+body{margin:0;font-family:Vazirmatn,Tahoma,sans-serif;background:var(--mist);color:#1b2a26;line-height:1.8}
+header{background:var(--night);color:#fff;padding:22px 16px;text-align:center;font-weight:800;font-size:20px}
+main{max-width:760px;margin:20px auto;padding:0 14px}
+.card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 6px 20px rgba(22,52,45,.1)}
+input{font:inherit;width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;direction:ltr;text-align:left}
+button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:11px 18px;background:var(--night);color:#fff;cursor:pointer}
+button.ghost{background:none;color:var(--tulip);padding:4px 8px}
+.row{display:flex;gap:10px;margin-top:12px}
+.err{color:var(--tulip);font-weight:600;min-height:1.6em}
+#panel{display:none}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat{background:var(--mist);border-radius:10px;padding:10px;text-align:center}
+.stat b{display:block;font-size:26px;color:var(--moss)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 8px;text-align:right;border-bottom:1px solid var(--line)}
+th{color:var(--moss);font-size:14px}
+.yes{color:var(--moss);font-weight:800}.no{color:var(--tulip);font-weight:800}
+.tools{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap}
+.wrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<header>پنل مدیر — پیاده‌روی خانوادگی شهید کاووسی</header>
+<main>
+  <div class="card" id="login">
+    <label for="pw">رمز عبور</label>
+    <div class="row"><input type="password" id="pw" autocomplete="current-password"><button id="go">ورود</button></div>
+    <p class="err" id="err" role="alert"></p>
+  </div>
+
+  <div class="card" id="panel">
+    <div class="stats">
+      <div class="stat"><b id="sYes">۰</b>می‌آیند</div>
+      <div class="stat"><b id="sNo">۰</b>نمی‌آیند</div>
+      <div class="stat"><b id="sTotal">۰</b>جمع کل نفرات</div>
+    </div>
+    <div class="tools"><strong>فهرست ثبت‌نام‌ها</strong><button id="refresh">به‌روزرسانی</button></div>
+    <div class="wrap">
+    <table>
+      <thead><tr><th>نام و نام خانوادگی</th><th>وضعیت</th><th>همراه</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    </div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const fa = (n) => String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[d]);
+let password = "";
+
+async function api(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, ...body }) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || "خطا");
+  return j;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+
+async function load() {
+  const { rows } = await api("/api/admin/list", {});
+  let yes = 0, no = 0, total = 0;
+  $("rows").innerHTML = rows.map((r) => {
+    if (r.attending) { yes++; total += 1 + r.companions; } else no++;
+    return `<tr>
+      <td>${esc(r.firstName)} ${esc(r.lastName)}</td>
+      <td class="${r.attending ? "yes" : "no"}">${r.attending ? "می‌آید" : "نمی‌آید"}</td>
+      <td>${r.attending ? (r.companions ? fa(r.companions) + " نفر" : "بدون همراه") : "—"}</td>
+      <td><button class="ghost" data-id="${r.id}">حذف</button></td></tr>`;
+  }).join("") || `<tr><td colspan="4">هنوز کسی ثبت‌نام نکرده است.</td></tr>`;
+  $("sYes").textContent = fa(yes); $("sNo").textContent = fa(no); $("sTotal").textContent = fa(total);
+}
+
+async function enter() {
+  password = $("pw").value;
+  $("err").textContent = "";
+  try {
+    await load();
+    $("login").style.display = "none"; $("panel").style.display = "block";
+  } catch (e) { $("err").textContent = e.message; }
+}
+$("go").onclick = enter;
+$("pw").addEventListener("keydown", (e) => e.key === "Enter" && enter());
+$("refresh").onclick = () => load().catch((e) => alert(e.message));
+$("rows").addEventListener("click", async (e) => {
+  const id = e.target.dataset.id;
+  if (!id || !confirm("این ثبت‌نام حذف شود؟")) return;
+  await api("/api/admin/delete", { id: isNaN(+id) ? id : +id }); load();
+});
+</script>
+</body>
+</html>

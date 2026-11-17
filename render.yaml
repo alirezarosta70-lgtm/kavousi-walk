@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: kavousi-walk
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: ADMIN_PASSWORD
+        value: algadir.na
+      - key: DATABASE_URL
+        sync: false
